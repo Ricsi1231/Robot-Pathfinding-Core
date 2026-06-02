@@ -85,3 +85,12 @@ minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra --strict-markers --strict-config"
+
+# Editor IntelliSense (Pylance / Pyright LSP). This resolves the src-layout
+# package for autocompletion, hover, and go-to-definition in any pyright-based
+# editor. mypy (above) remains the source of truth for CI type checking.
+[tool.pyright]
+include = ["src", "tests"]
+extraPaths = ["src"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
