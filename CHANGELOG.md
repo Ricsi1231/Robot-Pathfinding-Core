@@ -12,5 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial project scaffold: `src/` layout package `robot_pathfinding`, packaging
   via `pyproject.toml` (hatchling), strict mypy, ruff lint/format, pytest, a
   Makefile, pre-commit hooks, and GitHub Actions CI.
+- Staging publish pipeline: merging to the `staging` branch runs the full check
+  matrix (reusable `tests.yml` workflow) and, on success, builds a uniquely
+  versioned wheel + sdist (`<version>.dev<run>`) and attaches them to an
+  automatically created GitHub pre-release.
 
 [Unreleased]: https://github.com/Richard/Robot-Pathfinding-Core/commits/main
