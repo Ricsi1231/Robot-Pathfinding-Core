@@ -20,7 +20,10 @@ class BasePathfinder(ABC):
     * When ``start == goal`` (and walkable), return a path containing just that
       point.
     * On success, return the reconstructed path from start to goal inclusive.
-      For uniform movement cost the path must be a shortest one.
+      Cost-aware planners (A*, Dijkstra) return a path minimising the total
+      accumulated cost — step cost plus each entered cell's :meth:`Grid.cost`.
+      BFS returns a minimum move-count path and ignores the cost channel; DFS is
+      not optimal.
     * When the goal is unreachable, return a not-found result with an empty
       path.
     * Always populate ``visited_nodes`` and ``execution_time_ms``.

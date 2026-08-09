@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import pairwise
+
 from robot_pathfinding.algorithms.astar_pathfinder import AStarPathfinder
 from robot_pathfinding.algorithms.base_pathfinder import BasePathfinder
 from robot_pathfinding.algorithms.bfs_pathfinder import BfsPathfinder
@@ -26,6 +28,39 @@ def _assert_valid_path(
         assert manhattan == 1, f"non-adjacent step {previous} -> {current}"
 
 
+def _assert_valid_diagonal_path(
+    result: PathResult, grid: Grid, start: Point, goal: Point
+) -> None:
+    """Assert an 8-connected path is contiguous, walkable, and spans start to goal."""
+    assert result.found
+    assert result.path[0] == start
+    assert result.path[-1] == goal
+    assert result.path_length == len(result.path)
+    for point in result.path:
+        assert grid.is_walkable(point)
+    for previous, current in zip(result.path, result.path[1:], strict=False):
+        chebyshev = max(abs(previous.x - current.x), abs(previous.y - current.y))
+        assert chebyshev == 1, f"non-adjacent step {previous} -> {current}"
+
+
+def _path_cost(path: list[Point]) -> float:
+    """Weighted length: ``sqrt(2)`` per diagonal step, ``1.0`` per cardinal step."""
+    total = 0.0
+    for previous, current in pairwise(path):
+        diagonal = previous.x != current.x and previous.y != current.y
+        total += 2**0.5 if diagonal else 1.0
+    return total
+
+
+def _accumulated_cost(path: list[Point], grid: Grid) -> float:
+    """Total cost the planner minimises: step cost plus each entered cell's cost."""
+    total = 0.0
+    for previous, current in pairwise(path):
+        diagonal = previous.x != current.x and previous.y != current.y
+        total += (2**0.5 if diagonal else 1.0) + grid.cost(current)
+    return total
+
+
 def test_name_is_dijkstra() -> None:
     assert DijkstraPathfinder().name() == "Dijkstra"
 
@@ -41,7 +76,7 @@ def test_empty_grid_has_shortest_path() -> None:
     result = DijkstraPathfinder().find_path(grid, start, goal)
 
     _assert_valid_path(result, grid, start, goal)
-    assert result.path_length == 19  # 18 steps + start
+    assert result.path_length == 19
     assert result.execution_time_ms >= 0.0
 
 
@@ -118,6 +153,17 @@ def test_goal_on_obstacle() -> None:
     assert result.path == []
 
 
+def test_empty_grid_returns_not_found() -> None:
+    grid = Grid(0, 0)
+    point = Point(0, 0)
+
+    result = DijkstraPathfinder().find_path(grid, point, point)
+
+    assert not result.found
+    assert result.path == []
+    assert result.path_length == 0
+
+
 def test_dijkstra_matches_bfs_path_length() -> None:
     wall = [Point(2, y) for y in range(4)]
     grid = Grid(5, 5, obstacles=wall, allow_diagonal=False)
@@ -140,3 +186,95 @@ def test_dijkstra_matches_astar_path_length() -> None:
 
     assert dijkstra.found and astar.found
     assert dijkstra.path_length == astar.path_length
+
+
+def test_diagonal_shortcut_is_used() -> None:
+    grid = Grid(10, 10)
+    start, goal = Point(0, 0), Point(9, 9)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_diagonal_path(result, grid, start, goal)
+    assert result.path_length == 10
+
+
+def test_diagonal_cost_not_longer_than_bfs() -> None:
+    grid = Grid(10, 10)
+    start, goal = Point(0, 0), Point(9, 9)
+
+    dijkstra = DijkstraPathfinder().find_path(grid, start, goal)
+    bfs = BfsPathfinder().find_path(grid, start, goal)
+
+    assert dijkstra.found and bfs.found
+    assert _path_cost(dijkstra.path) <= _path_cost(bfs.path)
+    assert _path_cost(dijkstra.path) < 18.0
+
+
+def test_corner_cutting_is_forbidden() -> None:
+    grid = Grid(2, 2, obstacles=[Point(1, 0)])
+    start, goal = Point(0, 0), Point(1, 1)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_diagonal_path(result, grid, start, goal)
+    assert result.path_length == 3
+
+
+def test_high_cost_cell_is_avoided_when_detour_is_cheaper() -> None:
+    grid = Grid(3, 3, allow_diagonal=False)
+    grid.set_cost(Point(1, 0), 5.0)
+    start, goal = Point(0, 0), Point(2, 0)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_path(result, grid, start, goal)
+    assert Point(1, 0) not in result.path
+    assert result.path_length == 5
+
+
+def test_costly_cell_is_traversed_when_detour_is_more_expensive() -> None:
+    grid = Grid(3, 3, allow_diagonal=False)
+    grid.set_cost(Point(1, 0), 1.0)
+    start, goal = Point(0, 0), Point(2, 0)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_path(result, grid, start, goal)
+    assert Point(1, 0) in result.path
+    assert result.path_length == 3
+
+
+def test_gradient_steers_to_corridor_centre() -> None:
+    grid = Grid(5, 3, allow_diagonal=False)
+    for x in range(5):
+        grid.set_cost(Point(x, 0), 2.0)
+        grid.set_cost(Point(x, 2), 2.0)
+    start, goal = Point(0, 1), Point(4, 1)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_path(result, grid, start, goal)
+    assert all(point.y == 1 for point in result.path)
+
+
+def test_zero_cost_map_reproduces_baseline() -> None:
+    grid = Grid(3, 3, allow_diagonal=False)
+    start, goal = Point(0, 0), Point(2, 2)
+
+    result = DijkstraPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_path(result, grid, start, goal)
+    assert grid.cost(Point(1, 1)) == 0.0
+    assert result.path_length == 5
+
+
+def test_dijkstra_and_astar_agree_on_accumulated_cost() -> None:
+    costs = {Point(1, 1): 3.0, Point(2, 1): 2.0, Point(1, 2): 4.0}
+    grid = Grid(4, 4, allow_diagonal=False, costs=costs)
+    start, goal = Point(0, 0), Point(3, 3)
+
+    dijkstra = DijkstraPathfinder().find_path(grid, start, goal)
+    astar = AStarPathfinder().find_path(grid, start, goal)
+
+    assert dijkstra.found and astar.found
+    assert _accumulated_cost(dijkstra.path, grid) == _accumulated_cost(astar.path, grid)

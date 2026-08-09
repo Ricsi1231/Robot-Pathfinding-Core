@@ -24,12 +24,17 @@ class BfsPathfinder(BasePathfinder):
     The search operates on the grid's state at call time, so a map that changes
     as sensor data arrives is handled simply by calling :meth:`find_path` again
     after each update. The grid's size need not be known in advance.
+
+    Being unweighted, BFS ignores the grid's per-cell cost channel
+    (:meth:`Grid.cost`); use A* or Dijkstra for costmap-aware planning.
     """
 
     def name(self) -> str:
+        """Return the algorithm's short name (``"BFS"``)."""
         return "BFS"
 
     def find_path(self, grid: Grid, start: Point, goal: Point) -> PathResult:
+        """Find the fewest-moves path from ``start`` to ``goal``."""
         start_time = perf_counter()
 
         if not grid.is_walkable(start) or not grid.is_walkable(goal):
@@ -74,6 +79,7 @@ class BfsPathfinder(BasePathfinder):
 
 
 def _elapsed_ms(start_time: float) -> float:
+    """Return milliseconds elapsed since ``start_time``."""
     return (perf_counter() - start_time) * 1000.0
 
 

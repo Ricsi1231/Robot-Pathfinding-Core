@@ -11,7 +11,7 @@ from ..models.path_result import PathResult
 from ..models.point import Point
 from .base_pathfinder import BasePathfinder
 
-_CARDINAL: tuple[tuple[int, int], ...] = ((0, -1), (0, 1), (-1, 0), (1, 0))
+_SQRT2 = 2**0.5
 
 
 class DijkstraPathfinder(BasePathfinder):
@@ -19,18 +19,22 @@ class DijkstraPathfinder(BasePathfinder):
 
     Dijkstra expands nodes in order of accumulated cost ``g(n)`` from the start,
     which is A* with a zero heuristic. With non-negative costs this yields a
-    shortest path; the current version uses an equal cost of 1 for every valid
-    step. Without heuristic guidance it explores by cost layers like BFS, so it
-    typically visits more nodes than A*.
+    shortest path. Without heuristic guidance it explores by cost layers like
+    BFS, so it typically visits more nodes than A*.
 
-    Movement is restricted to the four cardinal directions, independent of the
-    grid's diagonal setting.
+    Movement follows :meth:`Grid.neighbors`, so the grid's ``allow_diagonal``
+    setting is honoured (including the no-corner-cutting rule). Cardinal steps
+    cost ``1.0`` and diagonal steps ``sqrt(2)``, plus the destination cell's
+    :meth:`Grid.cost` (a gradient costmap layer, ``0.0`` by default), so paths
+    prefer lower-cost cells while remaining able to traverse them when cheaper.
     """
 
     def name(self) -> str:
+        """Return the algorithm's short name (``"Dijkstra"``)."""
         return "Dijkstra"
 
     def find_path(self, grid: Grid, start: Point, goal: Point) -> PathResult:
+        """Find the lowest-cost path from ``start`` to ``goal`` via Dijkstra."""
         start_time = perf_counter()
 
         if not grid.is_walkable(start) or not grid.is_walkable(goal):
@@ -46,8 +50,8 @@ class DijkstraPathfinder(BasePathfinder):
             )
 
         counter = count()
-        open_heap: list[tuple[int, int, Point]] = [(0, next(counter), start)]
-        cost_so_far: dict[Point, int] = {start: 0}
+        open_heap: list[tuple[float, int, Point]] = [(0.0, next(counter), start)]
+        cost_so_far: dict[Point, float] = {start: 0.0}
         came_from: dict[Point, Point | None] = {start: None}
         closed: set[Point] = set()
         visited_nodes = 0
@@ -69,11 +73,12 @@ class DijkstraPathfinder(BasePathfinder):
                     execution_time_ms=_elapsed_ms(start_time),
                 )
 
-            for dx, dy in _CARDINAL:
-                neighbor = Point(current.x + dx, current.y + dy)
-                if not grid.is_walkable(neighbor):
-                    continue
-                new_cost = cost_so_far[current] + 1
+            for neighbor in grid.neighbors(current):
+                new_cost = (
+                    cost_so_far[current]
+                    + _move_cost(current, neighbor)
+                    + grid.cost(neighbor)
+                )
                 if neighbor not in cost_so_far or new_cost < cost_so_far[neighbor]:
                     cost_so_far[neighbor] = new_cost
                     came_from[neighbor] = current
@@ -85,7 +90,13 @@ class DijkstraPathfinder(BasePathfinder):
         )
 
 
+def _move_cost(a: Point, b: Point) -> float:
+    """Cost of a single step: ``sqrt(2)`` for a diagonal move, ``1.0`` otherwise."""
+    return _SQRT2 if (a.x != b.x and a.y != b.y) else 1.0
+
+
 def _elapsed_ms(start_time: float) -> float:
+    """Return milliseconds elapsed since ``start_time``."""
     return (perf_counter() - start_time) * 1000.0
 
 

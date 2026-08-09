@@ -18,7 +18,7 @@ from .models.grid import Grid
 from .models.path_result import PathResult
 from .models.point import Point
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "AStarPathfinder",

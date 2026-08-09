@@ -25,6 +25,21 @@ def _assert_valid_path(
         assert manhattan == 1, f"non-adjacent step {previous} -> {current}"
 
 
+def _assert_valid_diagonal_path(
+    result: PathResult, grid: Grid, start: Point, goal: Point
+) -> None:
+    """Assert an 8-connected path is contiguous, walkable, and spans start to goal."""
+    assert result.found
+    assert result.path[0] == start
+    assert result.path[-1] == goal
+    assert result.path_length == len(result.path)
+    for point in result.path:
+        assert grid.is_walkable(point)
+    for previous, current in zip(result.path, result.path[1:], strict=False):
+        chebyshev = max(abs(previous.x - current.x), abs(previous.y - current.y))
+        assert chebyshev == 1, f"non-adjacent step {previous} -> {current}"
+
+
 def test_name_is_dfs() -> None:
     assert DfsPathfinder().name() == "DFS"
 
@@ -124,6 +139,31 @@ def test_goal_on_obstacle() -> None:
 
     assert not result.found
     assert result.path == []
+
+
+def test_empty_grid_returns_not_found() -> None:
+    grid = Grid(0, 0)
+    point = Point(0, 0)
+
+    result = DfsPathfinder().find_path(grid, point, point)
+
+    assert not result.found
+    assert result.path == []
+    assert result.path_length == 0
+
+
+def test_diagonal_moves_are_used() -> None:
+    grid = Grid(3, 3)
+    start, goal = Point(0, 0), Point(2, 2)
+
+    result = DfsPathfinder().find_path(grid, start, goal)
+
+    _assert_valid_diagonal_path(result, grid, start, goal)
+    uses_diagonal = any(
+        previous.x != current.x and previous.y != current.y
+        for previous, current in zip(result.path, result.path[1:], strict=False)
+    )
+    assert uses_diagonal, "expected DFS to take at least one diagonal step"
 
 
 def test_bfs_finds_shorter_path_than_dfs() -> None:

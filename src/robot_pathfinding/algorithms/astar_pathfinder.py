@@ -11,26 +11,32 @@ from ..models.path_result import PathResult
 from ..models.point import Point
 from .base_pathfinder import BasePathfinder
 
-_CARDINAL: tuple[tuple[int, int], ...] = ((0, -1), (0, 1), (-1, 0), (1, 0))
+_SQRT2 = 2**0.5
 
 
 class AStarPathfinder(BasePathfinder):
     """A* search on a grid using a binary-heap priority queue.
 
     A* expands nodes in order of ``f(n) = g(n) + h(n)``, where ``g`` is the cost
-    from the start and ``h`` is the Manhattan-distance heuristic. With uniform
-    move cost and an admissible heuristic this yields an optimal path while
-    expanding fewer nodes than an uninformed search such as BFS.
+    from the start and ``h`` is an admissible heuristic. With an admissible
+    heuristic this yields an optimal path while expanding fewer nodes than an
+    uninformed search such as BFS.
 
-    Movement is restricted to the four cardinal directions, for which the
-    Manhattan heuristic is admissible, independent of the grid's diagonal
-    setting.
+    Movement follows :meth:`Grid.neighbors`, so the grid's ``allow_diagonal``
+    setting is honoured (including the no-corner-cutting rule). Cardinal steps
+    cost ``1.0`` and diagonal steps ``sqrt(2)``, plus the destination cell's
+    :meth:`Grid.cost` (a gradient costmap layer, ``0.0`` by default), so paths
+    prefer lower-cost cells while remaining able to traverse them when cheaper.
+    The heuristic is octile when diagonals are allowed and Manhattan otherwise;
+    both stay admissible and consistent because per-cell costs are non-negative.
     """
 
     def name(self) -> str:
+        """Return the algorithm's short name (``"A*"``)."""
         return "A*"
 
     def find_path(self, grid: Grid, start: Point, goal: Point) -> PathResult:
+        """Find the lowest-cost path from ``start`` to ``goal`` via A* search."""
         start_time = perf_counter()
 
         if not grid.is_walkable(start) or not grid.is_walkable(goal):
@@ -46,11 +52,15 @@ class AStarPathfinder(BasePathfinder):
             )
 
         counter = count()
-        open_heap: list[tuple[int, int, Point]] = [
-            (_heuristic(start, goal), next(counter), start)
+        open_heap: list[tuple[float, int, Point]] = [
+            (
+                _heuristic(start, goal, allow_diagonal=grid.allow_diagonal),
+                next(counter),
+                start,
+            )
         ]
         came_from: dict[Point, Point | None] = {start: None}
-        g_score: dict[Point, int] = {start: 0}
+        g_score: dict[Point, float] = {start: 0.0}
         closed: set[Point] = set()
         visited_nodes = 0
 
@@ -71,16 +81,19 @@ class AStarPathfinder(BasePathfinder):
                     execution_time_ms=_elapsed_ms(start_time),
                 )
 
-            for dx, dy in _CARDINAL:
-                neighbor = Point(current.x + dx, current.y + dy)
-                if not grid.is_walkable(neighbor):
-                    continue
-                tentative_g = g_score[current] + 1
+            for neighbor in grid.neighbors(current):
+                tentative_g = (
+                    g_score[current]
+                    + _move_cost(current, neighbor)
+                    + grid.cost(neighbor)
+                )
                 if neighbor not in g_score or tentative_g < g_score[neighbor]:
                     g_score[neighbor] = tentative_g
                     came_from[neighbor] = current
-                    f_score = tentative_g + _heuristic(neighbor, goal)
-                    heapq.heappush(open_heap, (f_score, next(counter), neighbor))
+                    h = _heuristic(neighbor, goal, allow_diagonal=grid.allow_diagonal)
+                    heapq.heappush(
+                        open_heap, (tentative_g + h, next(counter), neighbor)
+                    )
 
         return PathResult.empty(
             execution_time_ms=_elapsed_ms(start_time),
@@ -88,12 +101,25 @@ class AStarPathfinder(BasePathfinder):
         )
 
 
-def _heuristic(a: Point, b: Point) -> int:
-    """Manhattan distance, admissible for 4-direction uniform-cost movement."""
-    return abs(a.x - b.x) + abs(a.y - b.y)
+def _move_cost(a: Point, b: Point) -> float:
+    """Cost of a single step: ``sqrt(2)`` for a diagonal move, ``1.0`` otherwise."""
+    return _SQRT2 if (a.x != b.x and a.y != b.y) else 1.0
+
+
+def _heuristic(a: Point, b: Point, *, allow_diagonal: bool) -> float:
+    """Admissible heuristic for the grid's connectivity.
+
+    Octile distance when diagonals are allowed (tight for cardinal cost ``1.0``
+    and diagonal cost ``sqrt(2)``); Manhattan distance otherwise.
+    """
+    dx, dy = abs(a.x - b.x), abs(a.y - b.y)
+    if allow_diagonal:
+        return (dx + dy) + (_SQRT2 - 2) * min(dx, dy)
+    return float(dx + dy)
 
 
 def _elapsed_ms(start_time: float) -> float:
+    """Return milliseconds elapsed since ``start_time``."""
     return (perf_counter() - start_time) * 1000.0
 
 

@@ -26,28 +26,40 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
 ]
-# Runtime is intentionally dependency-free: the library uses only the Python
-# standard library. Do NOT add runtime dependencies here.
 dependencies = []
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
-    "ruff>=0.6",
+    "ruff>=0.6,<0.17",
     "mypy>=1.11",
     "pre-commit>=3.7",
+    "commitizen>=4.16",
 ]
 
 [project.urls]
-Homepage = "https://github.com/Richard/Robot-Pathfinding-Core"
-Repository = "https://github.com/Richard/Robot-Pathfinding-Core"
-Changelog = "https://github.com/Richard/Robot-Pathfinding-Core/blob/main/CHANGELOG.md"
+Homepage = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core"
+Repository = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core"
+Changelog = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core/-/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/robot_pathfinding/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/robot_pathfinding"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "commitizen"
+version = "1.0.0"
+tag_format = "v$version"
+version_scheme = "semver"
+major_version_zero = false
+bump_message = "bump(release): $current_version → $new_version [skip ci]"
+version_files = [
+    "src/robot_pathfinding/__init__.py:__version__",
+    "VERSION.txt:version",
+]
 
 [tool.ruff]
 line-length = 88
@@ -56,16 +68,16 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "N",   # pep8-naming
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "SIM", # flake8-simplify
-    "RUF", # ruff-specific rules
+    "E",
+    "W",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "RUF",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -86,9 +98,6 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra --strict-markers --strict-config"
 
-# Editor IntelliSense (Pylance / Pyright LSP). This resolves the src-layout
-# package for autocompletion, hover, and go-to-definition in any pyright-based
-# editor. mypy (above) remains the source of truth for CI type checking.
 [tool.pyright]
 include = ["src", "tests"]
 extraPaths = ["src"]

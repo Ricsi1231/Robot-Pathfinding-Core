@@ -9,26 +9,28 @@ from ..models.path_result import PathResult
 from ..models.point import Point
 from .base_pathfinder import BasePathfinder
 
-_CARDINAL: tuple[tuple[int, int], ...] = ((0, -1), (0, 1), (-1, 0), (1, 0))
-
 
 class DfsPathfinder(BasePathfinder):
     """Depth-first search on a grid using an explicit LIFO stack.
 
     DFS explores as deep as possible along each branch before backtracking. It
     is implemented iteratively (with a stack rather than recursion) to avoid
-    recursion-depth limits on large maps. Movement is restricted to the four
-    cardinal directions, independent of the grid's diagonal setting.
+    recursion-depth limits on large maps. Movement follows :meth:`Grid.neighbors`,
+    so the grid's ``allow_diagonal`` setting is honoured (including the
+    no-corner-cutting rule).
 
     Unlike BFS, DFS does **not** guarantee a shortest path; it returns the first
     valid path it discovers. Its purpose here is educational comparison against
-    BFS, Greedy, Dijkstra, and A*.
+    BFS, Greedy, Dijkstra, and A*. Being neither weighted nor optimal, it ignores
+    the grid's per-cell cost channel (:meth:`Grid.cost`).
     """
 
     def name(self) -> str:
+        """Return the algorithm's short name (``"DFS"``)."""
         return "DFS"
 
     def find_path(self, grid: Grid, start: Point, goal: Point) -> PathResult:
+        """Find a path from ``start`` to ``goal`` via depth-first search."""
         start_time = perf_counter()
 
         if not grid.is_walkable(start) or not grid.is_walkable(goal):
@@ -61,9 +63,8 @@ class DfsPathfinder(BasePathfinder):
                     execution_time_ms=_elapsed_ms(start_time),
                 )
 
-            for dx, dy in _CARDINAL:
-                neighbor = Point(current.x + dx, current.y + dy)
-                if grid.is_walkable(neighbor) and neighbor not in came_from:
+            for neighbor in grid.neighbors(current):
+                if neighbor not in came_from:
                     came_from[neighbor] = current
                     stack.append(neighbor)
 
@@ -74,6 +75,7 @@ class DfsPathfinder(BasePathfinder):
 
 
 def _elapsed_ms(start_time: float) -> float:
+    """Return milliseconds elapsed since ``start_time``."""
     return (perf_counter() - start_time) * 1000.0
 
 

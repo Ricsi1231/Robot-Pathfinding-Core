@@ -136,6 +136,17 @@ def test_goal_on_obstacle() -> None:
     assert result.path == []
 
 
+def test_empty_grid_returns_not_found() -> None:
+    grid = Grid(0, 0)
+    point = Point(0, 0)
+
+    result = BfsPathfinder().find_path(grid, point, point)
+
+    assert not result.found
+    assert result.path == []
+    assert result.path_length == 0
+
+
 def test_update_grows_grid_to_fit_sensor_data() -> None:
     grid = Grid(2, 2)
 
