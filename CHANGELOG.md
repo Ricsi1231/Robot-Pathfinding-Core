@@ -21,14 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   serves the same semver with `build + 200`.
 - `scripts/gitlab.sh` — a helper that wraps the GitLab REST API (create issue, open MR, move a
   status label, comment, close) for the issue → branch → MR → review workflow (development tooling).
-- **GitHub Actions pipeline** (`.github/workflows/`) running alongside GitLab CI: `ci.yml` (the
-  ruff / mypy / pytest gate across Python 3.11–3.14, on pull requests **and** pushes to the
-  promotion branches), `release.yml` (builds the wheel + sdist and attaches them to a GitHub
-  Release; an inert OIDC trusted-publishing job is gated behind the `ENABLE_PYPI_PUBLISH`
-  repository variable), and `production.yml` (the `version.json` manifest). Version bumping is
-  deliberately not ported — GitLab remains the sole writer of versions and tags.
-- GitHub repository files: pull request template, bug/feature issue forms pointing at the GitLab
-  tracker, and a Dependabot config for the `github-actions` ecosystem.
+- **GitHub Actions pipeline** (`.github/workflows/`) running alongside GitLab CI: `tests.yml` (the
+  reusable ruff / mypy / pytest gate across Python 3.11–3.14) and `ci.yml` (that gate on every pull
+  request and on pushes to every branch except `staging`). Version bumping is deliberately not
+  ported — GitLab remains the sole writer of versions and tags.
+- **Public GitHub Releases** — `release.yml` turns a push to `staging` into a public,
+  non-prerelease GitHub Release tagged `vX.Y.Z` with the wheel and sdist attached. It resolves the
+  version by importing the package, reuses an already-mirrored tag when one exists, and skips with
+  a green run when that version is already released, so re-pushing `staging` is a no-op. An inert
+  OIDC trusted-publishing job is gated behind the `ENABLE_PYPI_PUBLISH` repository variable.
+- `scripts/changelog_section.py` — extracts a single `## [X.Y.Z]` section from this file to use as
+  the GitHub Release body, with GitHub's auto-generated notes as the fallback.
 
 ### Changed
 - `scripts/gitlab.sh` is now a compatibility shim over **`scripts/vcs.sh`**, a provider-agnostic
@@ -44,10 +47,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reworded to "grid width and height must be non-negative".
 - CI: the test matrix now runs only on the `dev` branch (previously on every branch push and merge
   request).
+- `[project.urls]` and the README badges now point at the public GitHub repository, which is what
+  PyPI and GitHub render; the previous targets were a private GitLab project and two repository
+  paths that do not exist.
+- Documentation: `consuming.md` now leads with the public GitHub Release install path (wheel asset
+  URL, `gh release download`, tagged `git+` revision) and keeps the GitLab registry as the internal
+  channel; `building.md`'s CI/CD section describes the workflows that actually exist.
 - Development workflow: adopted a four-branch promotion model (`dev → staging → master →
   production`) and expanded the contributor guidelines; documentation synced to match.
 - Code style: removed non-docstring comments across the codebase and adopted a docstrings-only
   policy (docstrings on modules, classes, and functions are the only permitted in-code docs).
+
+### Removed
+- `.github/workflows/publish.yml` — it stamped a `.dev<run_number>` suffix into `__version__` and
+  published a *pre-release* on every `staging` push. Superseded by `release.yml`, which publishes
+  the real semver as a public release.
 
 ### Fixed
 - A\*, Dijkstra, and DFS ignored `Grid.allow_diagonal` — they were hardcoded to 4-connected cardinal

@@ -38,9 +38,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core"
-Repository = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core"
-Changelog = "https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core/-/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Ricsi1231/Robot-Pathfinding-Core"
+Repository = "https://github.com/Ricsi1231/Robot-Pathfinding-Core"
+Changelog = "https://github.com/Ricsi1231/Robot-Pathfinding-Core/blob/dev/CHANGELOG.md"
+Releases = "https://github.com/Ricsi1231/Robot-Pathfinding-Core/releases"
 
 [tool.hatch.version]
 path = "src/robot_pathfinding/__init__.py"
@@ -64,7 +65,7 @@ version_files = [
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = [
@@ -87,7 +88,8 @@ select = [
 python_version = "3.11"
 strict = true
 packages = ["robot_pathfinding"]
-mypy_path = "src"
+modules = ["changelog_section"]
+mypy_path = "src:scripts"
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -95,7 +97,7 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 addopts = "-ra --strict-markers --strict-config"
 
 [tool.pyright]
