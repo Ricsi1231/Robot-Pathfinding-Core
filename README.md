@@ -1,7 +1,9 @@
 # Robot Pathfinding Core
 
-[![pipeline status](https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core/badges/dev/pipeline.svg)](https://gitlab.com/robot-pathfinding-ros2-platfrom/robot-pathfinding-core/-/pipelines)
-[![CI](https://github.com/robot-pathfinding-ros2-platform/robot-pathfinding-core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/robot-pathfinding-ros2-platform/robot-pathfinding-core/actions/workflows/ci.yml)
+[![CI](https://github.com/Ricsi1231/Robot-Pathfinding-Core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Ricsi1231/Robot-Pathfinding-Core/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Ricsi1231/Robot-Pathfinding-Core?sort=semver)](https://github.com/Ricsi1231/Robot-Pathfinding-Core/releases/latest)
+[![Python](https://img.shields.io/badge/python-3.11%20%E2%80%93%203.14-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Core library of robot searching and pathfinding algorithms — **pure Python standard library,
 zero runtime dependencies**.
@@ -28,6 +30,25 @@ The weighted planners — A\* and Dijkstra — cost a cardinal step `1.0`, a dia
 each cell's optional per-cell cost, so they return true shortest paths and can follow a gradient
 costmap; BFS (minimum move-count) and DFS ignore the cost channel.
 
+## Install
+
+Every promotion to `staging` publishes a **[GitHub Release](https://github.com/Ricsi1231/Robot-Pathfinding-Core/releases)**
+with a wheel and an sdist attached. Install the wheel straight from the release you want:
+
+```bash
+pip install https://github.com/Ricsi1231/Robot-Pathfinding-Core/releases/download/v1.0.0/robot_pathfinding_core-1.0.0-py3-none-any.whl
+```
+
+Or install a tagged source revision directly:
+
+```bash
+pip install "robot-pathfinding-core @ git+https://github.com/Ricsi1231/Robot-Pathfinding-Core@v1.0.0"
+```
+
+The install (distribution) name is `robot-pathfinding-core`; the import name is
+`robot_pathfinding`. See [consuming.md](docs/guides/consuming.md) for pinning in
+`requirements.txt`, CI recipes, and the other available channels.
+
 ## Quick start
 
 ```python
@@ -50,7 +71,7 @@ if result.found:
 - **[Build & run](docs/guides/building.md)** — requirements, installation, running it, the
   development workflow, and CI/CD.
 - **[Using this library in another project](docs/guides/consuming.md)** — installing released
-  versions from the GitLab PyPI Package Registry.
+  versions from a GitHub Release, PyPI, or the GitLab Package Registry.
 - **[Architecture & how it works](docs/reference/architecture.md)** — the modules, the data flow,
   and the `BasePathfinder` contract.
 - **[Development guidelines](docs/reference/development-guidelines.md)** — branching, tasks, and

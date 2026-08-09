@@ -108,19 +108,35 @@ push mirror that verifies every change independently.
 
 ### GitHub Actions (`.github/workflows/`)
 
-- **`ci.yml`** — the same four checks across Python 3.11–3.14, but on the native GitHub triggers:
-  every **pull request** plus pushes to `dev`, `staging`, `master`, `main`, and `production`. This
-  is broader than the GitLab `test` job, which only covers `dev`.
-- **`release.yml`** — on push to `staging` or a `v*` tag, builds the wheel + sdist and attaches
-  them to a **GitHub Release**. It resolves the version from
-  `src/robot_pathfinding/__init__.py` with the same regex the GitLab `publish` job uses, so the two
-  hosts always agree on the version.
-- **`production.yml`** — port of `deploy-production`; emits the same `version.json`.
+GitHub is where the **public** releases live. Three files:
 
-The package is **not** published to public PyPI. `release.yml` contains a `pypi-publish` job that
-uses OIDC trusted publishing, but it is inert unless the repository variable
-`ENABLE_PYPI_PUBLISH` is set to `true`. Enabling it also requires registering the project on PyPI
-and configuring a trusted publisher for this repository and workflow filename.
+- **`tests.yml`** — a reusable workflow (`workflow_call` only, no triggers of its own) running the
+  four checks across Python 3.11–3.14. Both of the others call it, so the gate is defined once.
+- **`ci.yml`** — every **pull request** plus pushes to every branch **except `staging`**. The
+  exclusion is deliberate: `release.yml` already runs the same matrix on `staging`, and without it
+  the matrix would run twice concurrently on every promotion.
+- **`release.yml`** — on push to `staging` (and manually via `workflow_dispatch`, which takes a
+  `draft` input for rehearsals). It gates on `tests.yml`, then:
+  1. reads the version by importing `src/robot_pathfinding/__init__.py`, so the tag can never
+     disagree with the filename hatchling stamps into the wheel;
+  2. **skips with a green run** if a release for `vX.Y.Z` already exists — re-pushing `staging`
+     without a version bump is a no-op, not a failure or a duplicate;
+  3. builds the wheel + sdist and takes the release notes from the matching `## [X.Y.Z]` section of
+     `CHANGELOG.md` (via `scripts/changelog_section.py`), falling back to GitHub's auto-generated
+     notes when that section is missing;
+  4. creates a **public, non-prerelease** GitHub Release with both artifacts attached.
+
+  On tags: if `vX.Y.Z` already exists — the normal case, since `cz bump` tags on GitLab and the
+  mirror delivers it — the release is attached to that existing tag. Only when the tag is absent
+  does the workflow create it at the pushed commit, and it logs that it did so. This keeps GitLab
+  the effective tag owner and avoids a mirror force-push relocating a tag out from under a
+  published release.
+
+The package is **not** on public PyPI yet. `release.yml` has a `pypi` job using OIDC trusted
+publishing, but it stays skipped unless the repository variable `ENABLE_PYPI_PUBLISH` is `true`.
+Enabling it also requires registering the project on PyPI with a trusted publisher for this
+repository, the `release.yml` **filename**, and the `pypi` environment — which is why the workflow
+must not be renamed.
 
 There is deliberately **no `bump` job on GitHub**. Both hosts running `cz bump` would race for the
 same tags; GitLab owns version state and the mirror carries the result to GitHub.
@@ -146,8 +162,13 @@ consumes whatever the mirror delivers.
   `cz bump` (semver derived from the Conventional Commits), commits with `[skip ci]` (no pipeline
   loop), tags `vX.Y.Z`, and pushes back. Needs the `BUMP_TOKEN` masked CI/CD variable (project
   access token with `write_repository`). Only `feat` / `fix` / breaking commits move the semver.
-- **staging** — publishes the version, creates the GitLab Release, and is the **internal**
-  testing stage (release available to the group's developers).
+- **staging** — publishes the version, creates the GitLab Release **and the public GitHub
+  Release**, and is the **internal** testing stage (release available to the group's developers).
+
+  Before merging `dev → staging`, rename the changelog's `## [Unreleased]` heading to
+  `## [X.Y.Z] - YYYY-MM-DD` and open a fresh empty `## [Unreleased]` above it. That section becomes
+  the GitHub Release body; skip it and the release still publishes, just with GitHub's
+  auto-generated commit list instead of your notes.
 - **master** — promotes the staging release to **open testing / beta**, making it available to
   testers. (No dedicated CI job yet; it is a promotion target.)
 - **production** — the `deploy-production` job serves the **same semver** with
